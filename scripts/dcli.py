@@ -113,7 +113,7 @@ def format_messages(messages, reverse=True, use_local_timezone=True):
     
     for msg in messages:
         author = msg.get("author", "Unknown")
-        content = msg.get("content", "")[:200] if msg.get("content") else "[No content]"
+        content = msg.get("content", "") if msg.get("content") else "[No content]"
         created_at = msg.get("created_at", "")
         if created_at:
             # Parse ISO format and convert to local timezone
