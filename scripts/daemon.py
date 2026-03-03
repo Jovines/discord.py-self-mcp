@@ -161,7 +161,7 @@ class DiscordDaemon:
             if cmd == "list_guilds":
                 return self._list_guilds()
             elif cmd == "list_channels":
-                return self._list_channels(args.get("guild_id"))
+                return await self._list_channels(args.get("guild_id"))
             elif cmd == "read_messages":
                 return await self._read_messages(args.get("channel_id"), args.get("limit", 10), args.get("after"))
             elif cmd == "send_message":
@@ -208,10 +208,15 @@ class DiscordDaemon:
             })
         return {"guilds": guilds}
     
-    def _list_channels(self, guild_id):
-        guild = self.client.get_guild(guild_id) or self.client.fetch_guild(guild_id)
+    async def _list_channels(self, guild_id):
+        guild = self.client.get_guild(guild_id)
         if not guild:
-            return {"error": "Guild not found"}
+            try:
+                guild = await self.client.fetch_guild(guild_id)
+            except discord.NotFound:
+                return {"error": "Guild not found"}
+            except discord.HTTPException as e:
+                return {"error": f"Failed to fetch guild: {e}"}
         
         channels = []
         for channel in guild.channels:
@@ -263,8 +268,8 @@ class DiscordDaemon:
             try:
                 async for thread in channel.archived_threads(limit=100):
                     threads.append({"id": thread.id, "name": thread.name, "status": "Archived"})
-            except:
-                pass
+            except (discord.Forbidden, discord.HTTPException) as e:
+                print(f"[{datetime.now()}] Warning: Failed to fetch archived threads: {e}")
         
         return {"threads": threads}
     
@@ -617,7 +622,7 @@ def start_daemon():
     
     # Child process - daemonize
     os.setsid()
-    os.umask(0)
+    os.umask(0o077)  # Restrict permissions: only owner can read/write/execute
     
     if os.fork() > 0:
         os._exit(0)
